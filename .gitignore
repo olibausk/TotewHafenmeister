@@ -1,0 +1,10 @@
+# Umgebungsvariablen
+.env
+
+# Node.js
+node_modules/
+npm-debug.log
+
+# Betriebssystemdateien
+.DS_Store
+Thumbs.db
