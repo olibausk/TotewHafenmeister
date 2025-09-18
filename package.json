@@ -1,13 +1,24 @@
 {
   "name": "discord-bot-zeitverzoegert",
   "version": "1.0.0",
+  "description": "Discord-Bot mit verzögerter Antwortfunktion und zufälligen Nachrichten.",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
+  "keywords": [
+    "discord",
+    "bot",
+    "verzögert",
+    "zeitgesteuert"
+  ],
+  "author": "olibausk",
+  "license": "MIT",
   "dependencies": {
     "discord.js": "^14.11.0",
-    "lowdb": "^6.0.1",
-    "nanoid": "^4.0.2"
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1",
+    "node-schedule": "^2.1.1"
   }
 }
