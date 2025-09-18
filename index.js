@@ -15,7 +15,7 @@ const app = express();
 app.get("/", (_, res) => res.send("Bot läuft."));
 app.listen(PORT, () => console.log(`✅ Dummy-Webserver läuft auf Port ${PORT}`));
 
-const // DELAY_MS = 3 * 24 * 60 * 60 * 1000; // 3 Tage
+// const DELAY_MS = 3 * 24 * 60 * 60 * 1000; // 3 Tage
 const DELAY_MS = 2 * 24 * 60 * 60 * 1000; // 2 Tage
 // const DELAY_MS = 1 * 60 * 1000; // 10 Minuten
 const ANTWORTEN_DATEI = './antworten.json';
