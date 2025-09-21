@@ -1,20 +1,17 @@
 {
-  "name": "totew-hafenmeister-bot",
+  "name": "totew-hafenmeister",
   "version": "1.0.0",
-  "description": "Discord-Bot mit geplanter verzögerter Antwort und Adminpanel",
+  "description": "Discord-Bot mit zeitverzögerten Antworten und Adminpanel",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.13.0",
     "express": "^4.18.2",
-    "express-basic-auth": "^1.2.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "MIT"
+    "express-basic-auth": "^1.2.0",
+    "dotenv": "^16.4.5",
+    "fs-extra": "^11.2.0"
+  }
 }
