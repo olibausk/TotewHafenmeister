@@ -14,7 +14,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.use(['/admin', '/delete', '/update'], basicAuth({
+app.use(['/admin', '/delete', '/update', '/debug/messages'], basicAuth({
   users: { [ADMIN_USER]: ADMIN_PASS },
   challenge: true
 }));
@@ -106,6 +106,13 @@ app.post('/update', (req, res) => {
 
   saveMessages(messages);
   res.redirect('/');
+});
+
+// ✅ Debug-Route zum Anzeigen der messages.json
+app.get('/debug/messages', (req, res) => {
+  const messages = loadMessages();
+  res.setHeader('Content-Type', 'application/json');
+  res.send(JSON.stringify(messages, null, 2));
 });
 
 export function startAdmin() {
