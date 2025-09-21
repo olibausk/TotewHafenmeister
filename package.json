@@ -1,7 +1,7 @@
 {
   "name": "totew-hafenmeister-bot",
   "version": "1.0.0",
-  "description": "Discord Bot mit verzögerten Antworten",
+  "description": "Discord-Bot mit geplanter verzögerter Antwort und Adminpanel",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -12,6 +12,9 @@
     "express-basic-auth": "^1.2.0"
   },
   "engines": {
-    "node": ">=16.0.0"
-  }
+    "node": ">=18.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
 }
