@@ -1,148 +1,150 @@
-// 📦 Notwendige Module
-const fs = require('fs');
-const express = require('express');
-const basicAuth = require('express-basic-auth');
-const bodyParser = require('body-parser');
-const { Client, GatewayIntentBits, Events } = require('discord.js');
+// index.js
 
-// 🔐 Auth-Konfiguration aus ENV
-const ADMIN_USER = process.env.ADMIN_USER;
-const ADMIN_PASS = process.env.ADMIN_PASS;
-const TOKEN = process.env.TOKEN;
+import express from 'express';
+import basicAuth from 'express-basic-auth';
+import { Client, GatewayIntentBits, Events } from 'discord.js';
+import fs from 'fs';
+import dotenv from 'dotenv';
+dotenv.config();
 
-// 🔁 Initiale Setup
 const app = express();
 const PORT = process.env.PORT || 10000;
-const DELAY_MS = 2 * 24 * 60 * 60 * 1000; // 2 Tage
-const ANTWORTEN_DATEI = './antworten.json';
 
-let geplanteAntworten = {};
-if (fs.existsSync(ANTWORTEN_DATEI)) {
-  try {
-    geplanteAntworten = JSON.parse(fs.readFileSync(ANTWORTEN_DATEI));
-  } catch {
-    geplanteAntworten = {};
-  }
-}
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 🔑 Auth
-app.use(['/admin', '/admin/*'], basicAuth({
-  users: { [ADMIN_USER]: ADMIN_PASS },
+// Auth
+app.use(['/admin', '/api/clear', '/api/add'], basicAuth({
+  users: { [process.env.ADMIN_USER]: process.env.ADMIN_PASS },
   challenge: true,
-  unauthorizedResponse: 'Zugriff verweigert'
 }));
 
-// 🔧 Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'));
+const DB_FILE = './db.json';
+let geplanteAntworten = fs.existsSync(DB_FILE) ? JSON.parse(fs.readFileSync(DB_FILE)) : {};
 
-// 🤖 Discord Client
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-});
+const speichern = () => fs.writeFileSync(DB_FILE, JSON.stringify(geplanteAntworten, null, 2));
 
-// 🌐 Dummy Route
-app.get('/', (_, res) => res.send('Bot läuft.'));
+// Discord Bot
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
-// 🧾 Übersichtspanel
-app.get('/admin', (_, res) => {
-  const einträge = Object.entries(geplanteAntworten).map(([id, info]) => {
-    const inMs = info.timestamp + DELAY_MS;
-    const sendAt = new Date(inMs).toLocaleString();
-    return `<tr><td>${id}</td><td>${info.userId}</td><td>${info.message || '–'}</td><td>${sendAt}</td><td><form action="/admin/clear/${id}" method="POST"><button>❌</button></form></td></tr>`;
-  }).join('');
-  res.send(`
-    <h2>Geplante Antworten</h2>
-    <table border="1" cellpadding="6">
-      <tr><th>Nachricht-ID</th><th>User-ID</th><th>Inhalt</th><th>Geplant für</th><th>Löschen</th></tr>
-      ${einträge || '<tr><td colspan="5">Keine geplanten Antworten</td></tr>'}
-    </table>
-    <h3>Manuell hinzufügen</h3>
-    <form method="POST" action="/admin/add">
-      <label>Nachricht-ID: <input name="id" required></label><br>
-      <label>User-ID: <input name="userId" required></label><br>
-      <label>Channel-ID: <input name="channelId" required></label><br>
-      <label>Nachricht: <textarea name="message" rows="3" cols="40"></textarea></label><br>
-      <button type="submit">➕ Hinzufügen</button>
-    </form>
-  `);
-});
+const antworten = [
+  {
+    chance: 0.7,
+    text: (user) => `Sehr geehrte/r <@${user}>,\nIhre Bestellung trifft in der nächsten Woche im Hafen von Annesburg ein. Bitte lassen Sie Ihre Bestellung hier abholen.\nGez. Annesburg Hafenmeisterei`
+  },
+  {
+    chance: 0.2,
+    text: (user) => `Sehr geehrte/r <@${user}>,\nIhre Bestellung trifft in der nächsten Woche im Hafen von Annesburg ein. Leider haben Ratten auf dem Schiff die Hälfte der bestellten Waren zerstört bzw. die Matrosen mussten die Hälfte der Waren über Bord gehen lassen um die Ratten zu versenken. Bitte lassen Sie die Bestellung in der nächsten Woche hier abholen.\nGez. Annesburg Hafenmeisterei`
+  },
+  {
+    chance: 0.1,
+    text: (user) => `Sehr geehrte/r <@${user}>,\ndas Schiff mit Ihrer Bestellung ist leider gesunken. Da die Reederei nicht versichert war und nun insolvent ist, kann keine Erstattung erfolgen. Bitte bestellen Sie erneut.\nGez. Annesburg Hafenmeisterei`
+  },
+];
 
-// ➕ Manuelles Hinzufügen
-app.post('/admin/add', (req, res) => {
-  const { id, userId, channelId, message } = req.body;
-  if (!id || !userId || !channelId) return res.send('Fehlende Felder.');
-  geplanteAntworten[id] = { userId, channelId, timestamp: Date.now(), message };
-  fs.writeFileSync(ANTWORTEN_DATEI, JSON.stringify(geplanteAntworten, null, 2));
-  res.redirect('/admin');
-});
-
-// ❌ Eintrag löschen
-app.post('/admin/clear/:id', (req, res) => {
-  const id = req.params.id;
-  delete geplanteAntworten[id];
-  fs.writeFileSync(ANTWORTEN_DATEI, JSON.stringify(geplanteAntworten, null, 2));
-  res.redirect('/admin');
-});
-
-// 💬 Antwortmöglichkeiten
-function wähleAntwort(userId) {
-  const zufall = Math.random();
-  if (zufall < 0.7) {
-    return `Sehr geehrte/r <@${userId}>,\nIhre Bestellung trifft in der nächsten Woche im Hafen von Annesburg ein.`;
-  } else if (zufall < 0.9) {
-    return `Sehr geehrte/r <@${userId}>,\nRatten haben leider Teile Ihrer Lieferung zerstört.`;
-  } else {
-    return `Sehr geehrte/r <@${userId}>,\nDas Schiff mit Ihrer Bestellung ist gesunken.`;
-  }
-}
-
-// 🕒 Planung
 function planeAntwort(message) {
   const id = message.id;
-  if (geplanteAntworten[id]) return;
+  const userId = message.author.id;
+  const jetzt = Date.now();
+  const versandZeit = jetzt + 2 * 24 * 60 * 60 * 1000; // 2 Tage
+
   geplanteAntworten[id] = {
-    userId: message.author.id,
-    channelId: message.channel.id,
-    timestamp: Date.now(),
-    message: message.content
+    id,
+    userId,
+    timestamp: jetzt,
+    versandZeit,
+    originalText: message.content
   };
-  fs.writeFileSync(ANTWORTEN_DATEI, JSON.stringify(geplanteAntworten, null, 2));
+
+  speichern();
+  console.log(`🕒 Nachricht geplant: ${id} von ${message.author.tag}`);
 }
 
-// ⏱ Prüfen und Senden
-setInterval(() => {
-  const jetzt = Date.now();
-  for (const [id, info] of Object.entries(geplanteAntworten)) {
-    if (jetzt - info.timestamp >= DELAY_MS) {
-      const kanal = client.channels.cache.get(info.channelId);
-      if (kanal) {
-        kanal.messages.fetch(id).then(original => {
-          const antwort = wähleAntwort(info.userId);
-          console.log(`📤 Sende Antwort an ${info.userId}: ${antwort}`);
-          original.reply(antwort);
-        }).catch(() => {});
-      }
-      delete geplanteAntworten[id];
-      fs.writeFileSync(ANTWORTEN_DATEI, JSON.stringify(geplanteAntworten, null, 2));
-    }
-  }
-}, 60 * 1000);
-
-// 📩 Nachrichten-Empfang
 client.on(Events.MessageCreate, message => {
   if (message.author.bot) return;
-  if (message.mentions.has(client.user)) {
-    console.log(`🕒 Geplante Antwort für Nachricht ${message.id} von ${message.author.tag}`);
+  const botMentionedDirectly = message.mentions.users.has(client.user.id);
+  if (botMentionedDirectly) {
     planeAntwort(message);
   }
 });
 
-client.login(TOKEN);
+setInterval(() => {
+  const jetzt = Date.now();
+  for (const id in geplanteAntworten) {
+    const eintrag = geplanteAntworten[id];
+    if (eintrag.versandZeit <= jetzt) {
+      const channel = client.channels.cache.find(c => c.isTextBased() && c.messages);
+      if (channel) {
+        const antwort = waehleAntwort(eintrag.userId);
+        channel.send({ content: antwort });
+        console.log(`📤 Gesendet: ${antwort}`);
+      }
+      delete geplanteAntworten[id];
+      speichern();
+    }
+  }
+}, 60 * 1000);
 
-// 🌍 Start Server
-app.listen(PORT, () => console.log(`✅ Webserver aktiv auf Port ${PORT}`));
+function waehleAntwort(userId) {
+  let r = Math.random();
+  let acc = 0;
+  for (const a of antworten) {
+    acc += a.chance;
+    if (r < acc) return a.text(userId);
+  }
+  return antworten[0].text(userId);
+}
+
+// Adminpanel (HTML)
+app.get('/admin', (req, res) => {
+  const items = Object.values(geplanteAntworten)
+    .map(e => `
+      <tr>
+        <td>${e.id}</td>
+        <td><code>${e.originalText}</code></td>
+        <td>${new Date(e.timestamp).toLocaleString()}</td>
+        <td>${new Date(e.versandZeit).toLocaleString()}</td>
+        <td>${e.userId}</td>
+        <td>
+          <form method="POST" action="/api/clear?id=${e.id}">
+            <button type="submit">🗑️ Löschen</button>
+          </form>
+        </td>
+      </tr>`)
+    .join('');
+
+  res.send(`
+    <html>
+    <head><title>Totew Hafenpanel</title></head>
+    <body>
+      <h1>Geplante Nachrichten</h1>
+      <table border="1">
+        <tr><th>ID</th><th>Text</th><th>Erstellt</th><th>Geplant für</th><th>User</th><th>Aktion</th></tr>
+        ${items || '<tr><td colspan="6">Keine Einträge</td></tr>'}
+      </table>
+    </body>
+    </html>
+  `);
+});
+
+// API-Route: geplante anzeigen
+app.get('/api/list', (req, res) => {
+  res.json(Object.values(geplanteAntworten));
+});
+
+// API-Route: löschen
+app.post('/api/clear', (req, res) => {
+  const id = req.query.id;
+  if (geplanteAntworten[id]) {
+    delete geplanteAntworten[id];
+    speichern();
+    return res.send(`✅ Nachricht ${id} gelöscht.`);
+  }
+  res.status(404).send('❌ Nachricht nicht gefunden.');
+});
+
+// Dummy-Server
+app.get('/', (req, res) => res.send('✅ Dummy-Webserver läuft auf Port ' + PORT));
+app.listen(PORT, () => console.log(`✅ Dummy-Webserver läuft auf Port ${PORT}`));
+
+client.login(process.env.DISCORD_TOKEN);
