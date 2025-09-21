@@ -1,96 +1,134 @@
-import express from 'express';
-import fs from 'fs';
-import path from 'path';
-import basicAuth from 'express-basic-auth';
-import bodyParser from 'body-parser';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+// index.js (komplett mit Login, Adminpanel, Anzeige, Editieren, Löschen)
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import express from 'express';
+import basicAuth from 'express-basic-auth';
+import fs from 'fs';
+import bodyParser from 'body-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// .env laden (falls lokal)
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const port = process.env.PORT || 10000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const DATA_FILE = path.join(__dirname, 'scheduledMessages.json');
-const AUTH_USER = 'TotewPostAdmin';
-const AUTH_PASS = process.env.ADMIN_PASSWORD || 'changeme'; // in Render als ENV setzen
+const AUTH_USER = process.env.ADMIN_USER || 'admin';
+const AUTH_PASS = process.env.ADMIN_PASS || 'admin';
+const MESSAGE_FILE = './messages.json';
 
+// Bodyparser für Formulardaten
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
 
-app.use(basicAuth({
+// Authentifizierungsmiddleware
+const basicAuthMiddleware = basicAuth({
   users: { [AUTH_USER]: AUTH_PASS },
-  challenge: true
-}));
+  challenge: true,
+});
 
-function readMessages() {
-  if (!fs.existsSync(DATA_FILE)) return [];
-  return JSON.parse(fs.readFileSync(DATA_FILE));
+// Nachrichten laden
+let scheduledMessages = [];
+function loadMessages() {
+  if (fs.existsSync(MESSAGE_FILE)) {
+    scheduledMessages = JSON.parse(fs.readFileSync(MESSAGE_FILE));
+  }
 }
-
-function writeMessages(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+function saveMessages() {
+  fs.writeFileSync(MESSAGE_FILE, JSON.stringify(scheduledMessages, null, 2));
 }
+loadMessages();
 
+// Dummy-Webserver
 app.get('/', (req, res) => {
-  const messages = readMessages();
-  const rows = messages.map(msg => `
-    <tr>
-      <td>${msg.id}</td>
-      <td>${new Date(msg.timestamp).toLocaleString()}</td>
-      <td>${new Date(msg.sendAt).toLocaleString()}</td>
-      <td>${msg.userId}</td>
-      <td>${msg.content}</td>
-      <td>
-        <form method="POST" action="/delete">
-          <input type="hidden" name="id" value="${msg.id}" />
-          <button type="submit">Löschen</button>
-        </form>
-      </td>
-    </tr>`).join('');
+  res.redirect('/admin');
+});
 
+// Adminpanel anzeigen
+app.get('/admin', basicAuthMiddleware, (req, res) => {
   res.send(`
     <html>
-      <head>
-        <title>Admin Panel</title>
-      </head>
-      <body>
-        <h1>Geplante Nachrichten</h1>
-        <table border="1">
-          <tr><th>ID</th><th>Erstellt</th><th>Geplant</th><th>UserID</th><th>Nachricht</th><th>Aktion</th></tr>
-          ${rows}
-        </table>
+    <head><title>Adminpanel</title></head>
+    <body>
+      <h1>Adminpanel – Geplante Antworten</h1>
+      <form method="POST" action="/admin/add">
         <h2>Neue Nachricht hinzufügen</h2>
-        <form method="POST" action="/add">
-          <label>ID: <input type="text" name="id" required></label><br>
-          <label>Timestamp (ms seit Epoch): <input type="text" name="timestamp" required></label><br>
-          <label>Sendezeitpunkt (ms seit Epoch): <input type="text" name="sendAt" required></label><br>
-          <label>User ID: <input type="text" name="userId" required></label><br>
-          <label>Inhalt: <input type="text" name="content" required></label><br>
-          <button type="submit">Hinzufügen</button>
-        </form>
-      </body>
+        <label>Message ID: <input type="text" name="id" required></label><br>
+        <label>User ID: <input type="text" name="userId" required></label><br>
+        <label>Text: <input type="text" name="originalMessage" required></label><br>
+        <label>Ursprünglicher Zeitpunkt:
+          <input type="datetime-local" name="originalTimestamp" required>
+        </label><br>
+        <label>Geplanter Versandzeitpunkt:
+          <input type="datetime-local" name="scheduledTimestamp">
+          <small>(optional – sonst wie oben)</small>
+        </label><br>
+        <button type="submit">➕ Hinzufügen</button>
+      </form>
+      <hr>
+      <h2>Geplante Nachrichten</h2>
+      <table border="1" cellpadding="5" cellspacing="0">
+        <tr>
+          <th>ID</th><th>User ID</th><th>Text</th><th>Geplant für</th><th>Speichern</th><th>Löschen</th>
+        </tr>
+        ${scheduledMessages.map(msg => `
+          <tr>
+            <form method="POST" action="/admin/update/${msg.id}">
+              <td>${msg.id}</td>
+              <td>${msg.userId}</td>
+              <td>${msg.originalMessage}</td>
+              <td>
+                <input type="datetime-local" name="scheduledTimestamp"
+                       value="${new Date(msg.scheduledTimestamp).toISOString().slice(0,16)}" required>
+              </td>
+              <td><button type="submit">💾 Speichern</button></td>
+            </form>
+            <td>
+              <form method="POST" action="/admin/delete/${msg.id}" onsubmit="return confirm('Wirklich löschen?')">
+                <button type="submit">❌ Löschen</button>
+              </form>
+            </td>
+          </tr>
+        `).join('')}
+      </table>
+    </body>
     </html>
   `);
 });
 
-app.post('/delete', (req, res) => {
-  const { id } = req.body;
-  let messages = readMessages();
-  messages = messages.filter(msg => msg.id !== id);
-  writeMessages(messages);
-  res.redirect('/');
+// Nachricht hinzufügen
+app.post('/admin/add', basicAuthMiddleware, (req, res) => {
+  const { id, userId, originalMessage, originalTimestamp, scheduledTimestamp } = req.body;
+  const originalTs = new Date(originalTimestamp).getTime();
+  const scheduledTs = scheduledTimestamp ? new Date(scheduledTimestamp).getTime() : originalTs;
+
+  scheduledMessages.push({ id, userId, originalMessage, originalTimestamp: originalTs, scheduledTimestamp: scheduledTs });
+  saveMessages();
+  res.redirect('/admin');
 });
 
-app.post('/add', (req, res) => {
-  const { id, timestamp, sendAt, userId, content } = req.body;
-  let messages = readMessages();
-  messages.push({ id, timestamp: parseInt(timestamp), sendAt: parseInt(sendAt), userId, content });
-  writeMessages(messages);
-  res.redirect('/');
+// Nachricht bearbeiten (Zeitpunkt)
+app.post('/admin/update/:id', basicAuthMiddleware, (req, res) => {
+  const id = req.params.id;
+  const newTs = new Date(req.body.scheduledTimestamp).getTime();
+  const msg = scheduledMessages.find(m => m.id === id);
+
+  if (!msg || isNaN(newTs)) return res.status(400).send('Ungültige Daten');
+  msg.scheduledTimestamp = newTs;
+  saveMessages();
+  res.redirect('/admin');
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Admin-Panel läuft auf Port ${PORT}`);
+// Nachricht löschen
+app.post('/admin/delete/:id', basicAuthMiddleware, (req, res) => {
+  const id = req.params.id;
+  scheduledMessages = scheduledMessages.filter(m => m.id !== id);
+  saveMessages();
+  res.redirect('/admin');
+});
+
+app.listen(port, () => {
+  console.log(`✅ Adminpanel läuft auf Port ${port}`);
 });
