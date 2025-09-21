@@ -1,20 +1,28 @@
-# Discord-Bot: Verzögerte Antwort nach 3 Tagen
+# 🛳️ Totew Hafenmeister – Discord-Bot & Adminpanel
 
-Ein Discord-Bot, der auf eine @Erwähnung reagiert, aber erst **nach 3 Tagen** automatisch mit einer von drei vorgegebenen Antworten auf die ursprüngliche Nachricht antwortet.
+Totew Hafenmeister ist ein Discord-Bot, der auf Erwähnungen reagiert und Nachrichten mit Verzögerung antwortet – z. B. nach 3 Tagen. Zusätzlich bietet er ein einfaches Web-Adminpanel zum Verwalten, Hinzufügen und Planen von Nachrichten.
 
-## Funktionen
+---
 
-- Erkennt @Erwähnung
-- Antwort nach 3 Tagen mit 70/20/10 % Wahrscheinlichkeiten
-- Antwort auf die ursprüngliche Nachricht im selben Kanal
-- Speichert geplante Antworten in JSON-Datei
+## 🔧 Features
 
-## Installation
+- Discord-Bot reagiert auf Erwähnungen
+- Nachrichten werden verzögert beantwortet (z. B. +72 h)
+- Admin-Webinterface zur Verwaltung von Nachrichten
+- Nachrichtenplan mit originalem und geplantem Timestamp
+- Login-geschützter Zugang zum Adminbereich
 
-```bash
-git clone https://github.com/dein-username/dein-repo.git
-cd dein-repo
-npm install
-cp .env.example .env
-# TOKEN in .env eintragen
-npm start
+---
+
+## 📁 Projektstruktur
+
+```txt
+/
+├── bot.js             # Discord-Bot-Logik
+├── admin.js           # Express-Adminpanel
+├── index.js           # Startet Bot & Adminpanel
+├── utils.js           # Hilfsfunktionen (z. B. Nachrichten laden/speichern)
+├── package.json       # Projektdefinition & Abhängigkeiten
+├── messages.json      # (Laufzeit) Nachrichten-Speicher (wird ignoriert)
+├── .env               # Umgebungsvariablen (nicht committed)
+└── .gitignore         # Ignoriert .env und messages.json
