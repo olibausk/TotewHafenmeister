@@ -1,147 +1,164 @@
 import express from 'express';
-import basicAuth from 'express-basic-auth';
 import fs from 'fs';
+import basicAuth from 'express-basic-auth';
 import bodyParser from 'body-parser';
-import { Client, GatewayIntentBits } from 'discord.js';
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 10000;
-const messagesFile = './messages.json';
+const ADMIN_USER = 'TotewPostAdmin';
+const ADMIN_PASS = process.env.ADMIN_PASS;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const MESSAGES_FILE = './messages.json';
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-const auth = basicAuth({
-  users: { [process.env.ADMIN_USER]: process.env.ADMIN_PASS },
-  challenge: true,
-  realm: 'Admin Panel'
-});
+// Basis Auth
+app.use(['/admin', '/delete', '/update'], basicAuth({
+  users: { [ADMIN_USER]: ADMIN_PASS },
+  challenge: true
+}));
 
+// Hilfsfunktion zum Laden der Daten
 function loadMessages() {
-  if (!fs.existsSync(messagesFile)) fs.writeFileSync(messagesFile, '[]');
-  return JSON.parse(fs.readFileSync(messagesFile));
+  try {
+    return JSON.parse(fs.readFileSync(MESSAGES_FILE, 'utf8'));
+  } catch {
+    return [];
+  }
 }
 
+// Hilfsfunktion zum Speichern der Daten
 function saveMessages(messages) {
-  fs.writeFileSync(messagesFile, JSON.stringify(messages, null, 2));
+  fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2));
 }
 
-// HTML Admin Panel
-app.get('/', auth, (req, res) => {
+// Adminpanel
+app.get('/', (req, res) => {
   const messages = loadMessages();
-  const rows = messages.map(msg => `
-    <tr>
-      <td>${msg.id}</td>
-      <td>${msg.timestamp ? new Date(msg.timestamp * 1000).toISOString() : ''}</td>
-      <td>${msg.scheduledTimestamp ? new Date(msg.scheduledTimestamp * 1000).toISOString() : ''}</td>
-      <td>${msg.userId}</td>
-      <td>${msg.message}</td>
-      <td>
-        <form method="POST" action="/delete?token=${process.env.ADMIN_TOKEN}">
-          <input type="hidden" name="id" value="${msg.id}" />
-          <button type="submit">Löschen</button>
-        </form>
-      </td>
-    </tr>`).join('');
+
+  const rows = messages.map(msg => {
+    const formattedOriginal = new Date(msg.timestamp).toISOString().slice(0, 16);
+    const formattedScheduled = new Date(msg.scheduledTimestamp).toISOString().slice(0, 16);
+    return `
+      <tr>
+        <td>${msg.id}</td>
+        <td>${msg.message}</td>
+        <td>${msg.userId}</td>
+        <td>${formattedOriginal}</td>
+        <td>
+          <form method="POST" action="/update?id=${msg.id}">
+            <input type="datetime-local" name="scheduledTimestamp" value="${formattedScheduled}">
+            <button type="submit">💾</button>
+          </form>
+        </td>
+        <td>
+          <form method="POST" action="/delete?id=${msg.id}">
+            <input type="hidden" name="token" value="${ADMIN_TOKEN}">
+            <button type="submit">❌</button>
+          </form>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   res.send(`
-    <html><body>
-    <h1>Admin Panel</h1>
-    <table border="1" cellpadding="5">
-      <tr><th>ID</th><th>Original Timestamp</th><th>Scheduled</th><th>User</th><th>Nachricht</th><th>Aktion</th></tr>
-      ${rows}
-    </table>
-    <h2>Neue Nachricht hinzufügen</h2>
-    <form method="POST" action="/add?token=${process.env.ADMIN_TOKEN}">
-      <label>ID: <input name="id" required></label><br>
-      <label>UserID: <input name="userId" required></label><br>
-      <label>Nachricht: <input name="message" required></label><br>
-      <label>Original-Timestamp (ISO): <input name="timestamp" type="datetime-local" required></label><br>
-      <label>Scheduled Timestamp (ISO, optional): <input name="scheduledTimestamp" type="datetime-local"></label><br>
-      <button type="submit">Speichern</button>
-    </form>
-    </body></html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>TotewPost Adminpanel</title>
+      <style>
+        table, th, td { border: 1px solid black; border-collapse: collapse; padding: 6px; }
+        th { background: #f0f0f0; }
+        input[type="text"], input[type="datetime-local"] { width: 100%; }
+      </style>
+    </head>
+    <body>
+      <h2>TotewPost Adminpanel</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nachricht</th>
+            <th>User ID</th>
+            <th>Original Timestamp</th>
+            <th>Scheduled Timestamp</th>
+            <th>Löschen</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <h3>➕ Neue Nachricht hinzufügen</h3>
+      <form method="POST" action="/add">
+        <label>Nachricht:<br><input type="text" name="message" required></label><br><br>
+        <label>User ID:<br><input type="text" name="userId" required></label><br><br>
+        <label>Original Timestamp (ISO):<br>
+          <input type="datetime-local" name="timestamp" required>
+        </label><br><br>
+        <label>Geplanter Timestamp (optional):<br>
+          <input type="datetime-local" name="scheduledTimestamp">
+        </label><br><br>
+        <button type="submit">➕ Hinzufügen</button>
+      </form>
+    </body>
+    </html>
   `);
 });
 
-// Add message
-app.post('/add', auth, (req, res) => {
-  if (req.query.token !== process.env.ADMIN_TOKEN) return res.status(403).send('Invalid token');
-
-  const { id, userId, message, timestamp, scheduledTimestamp } = req.body;
-
-  const parsedOriginal = Date.parse(timestamp);
-  const parsedScheduled = scheduledTimestamp ? Date.parse(scheduledTimestamp) : parsedOriginal;
-
-  if (isNaN(parsedOriginal) || isNaN(parsedScheduled)) {
-    return res.status(400).send('Invalid date format');
-  }
-
-  const newMessage = {
-    id,
-    userId,
-    message,
-    timestamp: Math.floor(parsedOriginal / 1000),
-    scheduledTimestamp: Math.floor(parsedScheduled / 1000),
-  };
+// Nachricht hinzufügen
+app.post('/add', (req, res) => {
+  const { message, userId, timestamp, scheduledTimestamp } = req.body;
+  const originalTs = new Date(timestamp).getTime();
+  let plannedTs = scheduledTimestamp ? new Date(scheduledTimestamp).getTime() : originalTs + 2 * 24 * 60 * 60 * 1000;
 
   const messages = loadMessages();
-  messages.push(newMessage);
+  const id = Date.now().toString(); // einfache ID-Generierung
+  messages.push({
+    id,
+    message,
+    userId,
+    timestamp: originalTs,
+    scheduledTimestamp: plannedTs,
+    sent: false
+  });
+
   saveMessages(messages);
   res.redirect('/');
 });
 
-// Delete message
-app.post('/delete', auth, (req, res) => {
-  if (req.query.token !== process.env.ADMIN_TOKEN) return res.status(403).send('Invalid token');
-  const { id } = req.body;
-  const messages = loadMessages().filter(msg => msg.id !== id);
+// Nachricht löschen
+app.post('/delete', (req, res) => {
+  const { id } = req.query;
+  const { token } = req.body;
+  if (token !== ADMIN_TOKEN) return res.status(403).send('Unauthorized');
+
+  let messages = loadMessages();
+  messages = messages.filter(msg => msg.id !== id);
   saveMessages(messages);
   res.redirect('/');
 });
 
-// Debug JSON
-app.get('/debug/messages', auth, (req, res) => {
-  res.json(loadMessages());
+// Timestamp aktualisieren
+app.post('/update', (req, res) => {
+  const { id } = req.query;
+  const { scheduledTimestamp } = req.body;
+  let messages = loadMessages();
+  messages = messages.map(msg => {
+    if (msg.id === id) {
+      msg.scheduledTimestamp = new Date(scheduledTimestamp).getTime();
+    }
+    return msg;
+  });
+  saveMessages(messages);
+  res.redirect('/');
 });
 
-// Discord Bot
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
-});
-
-client.on('ready', () => {
-  console.log(`✅ Bot eingeloggt als ${client.user.tag}`);
-});
-
-client.on('messageCreate', (message) => {
-  if (message.author.bot) return;
-
-  const botId = client.user.id;
-  const isBotMentioned = message.mentions.users.has(botId);
-
-  if (isBotMentioned) {
-    console.log(`[TRIGGER] Bot wurde erwähnt: ${message.content}`);
-
-    // Nachricht speichern
-    const messages = loadMessages();
-    messages.push({
-      id: message.id,
-      timestamp: Math.floor(message.createdTimestamp / 1000),
-      scheduledTimestamp: Math.floor(message.createdTimestamp / 1000),
-      userId: message.author.id,
-      message: message.content,
-    });
-    saveMessages(messages);
-  }
-});
-
-client.login(process.env.DISCORD_TOKEN);
-
-// Dummy-Server zum wach halten
+// Dummy-Start
 app.listen(PORT, () => {
-  console.log(`✅ Adminpanel & Server läuft auf Port ${PORT}`);
+  console.log(`✅ Adminpanel läuft auf Port ${PORT}`);
 });
