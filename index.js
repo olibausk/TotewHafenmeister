@@ -45,14 +45,20 @@ Gezeichnet Hafenmeister Annesburg`;
   }
 
   // 👉 Speichere Erwähnungen
-  if (message.mentions.has(client.user)) {
-    const messages = loadMessages();
+ if (message.mentions.has(client.user)) {
+  const messages = loadMessages();
+
+  // Falls die Nachricht schon gespeichert ist -> NICHT überschreiben
+  const exists = messages.find(m => m.id === message.id);
+
+  if (!exists) {
     messages.push({
       id: message.id,
       message: message.content,
       userId: message.author.id,
       timestamp: message.createdTimestamp,
-      scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000, // +2 Tage
+      // Standard: +2 Tage – aber nur beim ERSTEN Speichern
+      scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000,
       sent: false,
     });
 
@@ -60,6 +66,7 @@ Gezeichnet Hafenmeister Annesburg`;
     console.log(`💾 Nachricht gespeichert: ${message.content}`);
   }
 });
+
 
 // 🔑 Login
 client.login(process.env.HAFEN_TOKEN);
