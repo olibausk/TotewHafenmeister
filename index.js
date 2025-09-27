@@ -66,3 +66,18 @@ client.login(process.env.HAFEN_TOKEN);
 
 // 🚀 Adminpanel starten
 startAdmin();
+// DEBUG: Geplante Nachrichten prüfen
+setInterval(() => {
+  const messages = loadMessages();
+  const now = Date.now();
+  const pending = messages.filter(m => !m.sent && m.scheduledTimestamp > now);
+  if (pending.length > 0) {
+    const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
+    const diff = next.scheduledTimestamp - now;
+    console.log(
+      `⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toString()} (${Math.round(diff / 1000)} Sekunden verbleibend)`
+    );
+  } else {
+    console.log("ℹ️ Keine geplanten Antworten vorhanden.");
+  }
+}, 60 * 1000); // alle 60 Sekunden
