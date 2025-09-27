@@ -16,15 +16,21 @@ client.once('ready', () => {
       .filter(m => !m.sent)
       .sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
 
-    if (next) {
-      const now = Date.now();
-      const diff = next.scheduledTimestamp - now;
-      console.log(
-        `⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toString()} (${Math.round(diff / 1000)} Sekunden verbleibend)`
-      );
-    }
-  }, 60 * 1000); // alle 60 Sekunden prüfen
-});
+  if (next) {
+  const now = Date.now();
+  const diff = next.scheduledTimestamp - now;
+
+  if (diff > 0) {
+    console.log(
+      `⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toLocaleString()} (${Math.round(diff / 1000)} Sekunden verbleibend)`
+    );
+  } else {
+    console.log(
+      `⚠️ Antwort war fällig um ${new Date(next.scheduledTimestamp).toLocaleString()} (vor ${Math.abs(Math.round(diff / 1000))} Sekunden)`
+    );
+  }
+}
+ 
 
 client.on('messageCreate', (message) => {
   if (message.author.bot) return;
