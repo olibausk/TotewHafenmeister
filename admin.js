@@ -1,4 +1,7 @@
 // admin.js
+import dotenv from "dotenv";
+dotenv.config(); // <--- sorgt dafür, dass .env auch hier geladen ist
+
 import express from "express";
 import basicAuth from "express-basic-auth";
 import path from "path";
