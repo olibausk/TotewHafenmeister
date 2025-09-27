@@ -31,11 +31,14 @@ client.on("messageCreate", (message) => {
     let antwort = "";
 
     if (roll < 80) {
-      antwort = `Sehr geehrte/r <@${message.author.id}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Bitte lassen Sie diese vom Postmeister abholen.\nGezeichnet Hafenmeisterei Annesburg`;
+      antwort = `Sehr geehrte/r <@${message.author.id}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Bitte lassen Sie diese vom Postmeister abholen.  
+Gezeichnet Hafenmeisterei Annesburg`;
     } else if (roll < 95) {
-      antwort = `Sehr geehrte/r <@${message.author.id}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.\nGezeichnet Hafenmeister Annesburg`;
+      antwort = `Sehr geehrte/r <@${message.author.id}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.  
+Gezeichnet Hafenmeister Annesburg`;
     } else {
-      antwort = `Sehr geehrte/r <@${message.author.id}>, das Schiff mit Ihrer Bestellung ist untergegangen. Die Reederei ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.\nGezeichnet Hafenmeister Annesburg`;
+      antwort = `Sehr geehrte/r <@${message.author.id}>, das Schiff mit Ihrer Bestellung ist untergegangen. Die Reederei ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.  
+Gezeichnet Hafenmeister Annesburg`;
     }
 
     message.reply(antwort);
@@ -45,7 +48,7 @@ client.on("messageCreate", (message) => {
   if (message.mentions.has(client.user)) {
     const messages = loadMessages();
 
-    // Falls die Nachricht schon gespeichert ist -> NICHT überschreiben
+    // Falls schon gespeichert -> nicht doppelt speichern
     const exists = messages.find((m) => m.id === message.id);
 
     if (!exists) {
@@ -53,7 +56,7 @@ client.on("messageCreate", (message) => {
         id: message.id,
         message: message.content,
         userId: message.author.id,
-        channelId: message.channel.id, // ✅ Channel speichern
+        channelId: message.channel.id, // ❗ Wichtig für geplante Antworten
         timestamp: message.createdTimestamp,
         scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000, // Standard: +2 Tage
         sent: false,
@@ -71,45 +74,52 @@ client.login(process.env.HAFEN_TOKEN);
 // 🚀 Adminpanel starten
 startAdmin();
 
-// ⏰ Scheduler – prüft jede Minute, ob Nachrichten fällig sind
+// ⏳ Scheduler: prüft alle 30 Sekunden
 setInterval(async () => {
   const messages = loadMessages();
   const now = Date.now();
+  const due = messages.filter((m) => !m.sent && m.scheduledTimestamp <= now);
 
-  // alle fälligen Nachrichten
-  const pending = messages.filter((m) => !m.sent && m.scheduledTimestamp <= now);
-
-  for (const next of pending) {
+  for (const msg of due) {
     try {
-      const channel = await client.channels.fetch(next.channelId);
-      if (channel) {
-        await channel.send(
-          `📨 Automatische Antwort an <@${next.userId}>:\n\n${next.message}`
-        );
-        next.sent = true;
-        console.log(`✅ Nachricht automatisch gesendet an <@${next.userId}>`);
+      const channel = await client.channels.fetch(msg.channelId);
+
+      // 🎲 Zufallstext wie bei !hafen
+      const roll = Math.random() * 100;
+      let antwort = "";
+
+      if (roll < 80) {
+        antwort = `Sehr geehrte/r <@${msg.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Bitte lassen Sie diese vom Postmeister abholen.\nGezeichnet Hafenmeisterei Annesburg`;
+      } else if (roll < 95) {
+        antwort = `Sehr geehrte/r <@${msg.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.\nGezeichnet Hafenmeister Annesburg`;
       } else {
-        console.error(`❌ Konnte Channel ${next.channelId} nicht finden.`);
+        antwort = `Sehr geehrte/r <@${msg.userId}>, das Schiff mit Ihrer Bestellung ist untergegangen. Die Reederei ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.\nGezeichnet Hafenmeister Annesburg`;
       }
+
+      await channel.send(antwort);
+
+      msg.sent = true;
+      saveMessages(messages);
+      console.log(`📤 Gesendet an ${msg.userId}`);
     } catch (err) {
       console.error("❌ Fehler beim Senden:", err);
     }
   }
 
-  // Speicher aktualisieren
-  saveMessages(messages);
-
-  // Debug-Info für nächste geplante Nachricht
-  const upcoming = messages.filter((m) => !m.sent && m.scheduledTimestamp > now);
-  if (upcoming.length > 0) {
-    const next = upcoming.sort(
-      (a, b) => a.scheduledTimestamp - b.scheduledTimestamp
-    )[0];
-    const diff = Math.max(0, Math.round((next.scheduledTimestamp - now) / 1000));
-    console.log(
-      `[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(
-        next.scheduledTimestamp
-      ).toUTCString()} (${diff} Sekunden verbleibend)`
-    );
+  // Debug: nächste geplante Antwort
+  const pending = messages.filter((m) => !m.sent && m.scheduledTimestamp > now);
+  if (pending.length > 0) {
+    const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
+    if (next) {
+      const diff = Math.max(
+        0,
+        Math.round((next.scheduledTimestamp - Date.now()) / 1000)
+      );
+      console.log(
+        `[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(
+          next.scheduledTimestamp
+        ).toUTCString()} (${diff} Sekunden verbleibend)`
+      );
+    }
   }
-}, 60 * 1000); // alle 60 Sekunden prüfen
+}, 30 * 1000);
