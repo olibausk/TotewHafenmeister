@@ -1,64 +1,82 @@
 // admin.js
 import express from "express";
+import bodyParser from "body-parser";
 import { loadMessages, saveMessages } from "./utils.js";
 
-export function startAdmin(client) {
+export function startAdmin() {
   const app = express();
-  app.use(express.json());
-  app.use(express.static("public"));
+  app.use(bodyParser.json());
 
-  // 📜 Alle Nachrichten abrufen
-  app.get("/messages", (req, res) => {
+  // 👉 Alle Nachrichten anzeigen
+  app.get("/", (req, res) => {
     const messages = loadMessages();
-    res.json(messages);
+    res.send(`
+      <h1>Adminpanel</h1>
+      <ul>
+        ${messages
+          .map(
+            (m) => `
+          <li>
+            <b>User:</b> ${m.userId}<br>
+            <b>Original:</b> ${m.message}<br>
+            <b>Geplant für:</b> ${new Date(
+              m.scheduledTimestamp
+            ).toLocaleString()}<br>
+            <b>Status:</b> ${m.sent ? "✅ Gesendet" : "⏳ Offen"}<br>
+            ${
+              m.sent
+                ? `
+              <b>Gesendet am:</b> ${new Date(m.sentAt).toLocaleString()}<br>
+              <b>Bot-Antwort:</b> ${m.botResponse}
+            `
+                : ""
+            }
+            <form method="POST" action="/reschedule/${m.id}">
+              <input type="text" name="timestamp" placeholder="YYYY-MM-DD HH:MM:SS">
+              <button type="submit">Neu planen</button>
+            </form>
+            <form method="POST" action="/sendnow/${m.id}">
+              <button type="submit">Sofort senden</button>
+            </form>
+          </li>
+        `
+          )
+          .join("")}
+      </ul>
+    `);
   });
 
-  // ⏰ Zeitpunkt aktualisieren
-  app.post("/update/:id", (req, res) => {
-    const { id } = req.params;
-    const { scheduledTimestamp } = req.body;
+  // 👉 Neu planen
+  app.post("/reschedule/:id", bodyParser.urlencoded({ extended: true }), (req, res) => {
     const messages = loadMessages();
-    const msg = messages.find((m) => m.id === id);
+    const msg = messages.find((m) => m.id === req.params.id);
 
-    if (!msg) return res.status(404).send("Not found");
-    msg.scheduledTimestamp = scheduledTimestamp;
-    saveMessages(messages);
-    res.json({ success: true });
-  });
-
-  // 📤 Sofort senden
-  app.post("/sendNow/:id", async (req, res) => {
-    const { id } = req.params;
-    const messages = loadMessages();
-    const msg = messages.find((m) => m.id === id);
-
-    if (!msg) return res.status(404).send("Not found");
-    if (msg.sent) return res.status(400).send("Already sent");
-
-    try {
-      const channel = await client.channels.fetch(msg.channelId);
-
-      const roll = Math.random() * 100;
-      let antwort = "";
-      if (roll < 80) {
-        antwort = `Sehr geehrte/r <@${msg.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an.\nGezeichnet Hafenmeisterei Annesburg`;
-      } else if (roll < 95) {
-        antwort = `Sehr geehrte/r <@${msg.userId}>, leider haben Ratten die Hälfte Ihrer Ladung zerstört.\nGezeichnet Hafenmeister Annesburg`;
-      } else {
-        antwort = `Sehr geehrte/r <@${msg.userId}>, das Schiff mit Ihrer Bestellung ist gesunken.\nGezeichnet Hafenmeister Annesburg`;
+    if (msg) {
+      const newTime = new Date(req.body.timestamp).getTime();
+      if (!isNaN(newTime)) {
+        msg.scheduledTimestamp = newTime;
+        msg.sent = false; // zurücksetzen, falls schon gesendet
+        saveMessages(messages);
+        console.log(`♻️ Nachricht ${msg.id} neu geplant für ${req.body.timestamp}`);
       }
-
-      await channel.send(antwort);
-
-      msg.sent = true;
-      msg.botMessage = antwort;
-      saveMessages(messages);
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error("❌ Fehler beim sofortigen Senden:", err);
-      res.status(500).send("Fehler beim Senden");
     }
+
+    res.redirect("/");
+  });
+
+  // 👉 Sofort senden
+  app.post("/sendnow/:id", (req, res) => {
+    const messages = loadMessages();
+    const msg = messages.find((m) => m.id === req.params.id);
+
+    if (msg) {
+      msg.scheduledTimestamp = Date.now();
+      msg.sent = false; // sicherstellen, dass sie rausgeht
+      saveMessages(messages);
+      console.log(`🚀 Nachricht ${msg.id} für sofortigen Versand markiert`);
+    }
+
+    res.redirect("/");
   });
 
   app.listen(10001, () => {
