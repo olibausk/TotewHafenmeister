@@ -1,11 +1,13 @@
 // index.js
 import dotenv from "dotenv";
 dotenv.config();
-import { startAdmin } from "./admin.js";
-import { Client, GatewayIntentBits } from "discord.js";
 
-// ✅ Hafenmeister-Bot Client
-const hafenClient = new Client({
+import { Client, GatewayIntentBits } from "discord.js";
+import { startAdmin } from "./admin.js";
+import { loadMessages, saveMessages } from "./utils.js";
+
+// ✅ Discord Client
+const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -13,14 +15,17 @@ const hafenClient = new Client({
   ],
 });
 
-hafenClient.once("clientReady", () => {
-  console.log(`⚓ Hafenmeister-Bot eingeloggt als ${hafenClient.user.tag}`);
+client.once("ready", () => {
+  console.log(`⚓ Hafenmeister-Bot eingeloggt als ${client.user.tag}`);
 });
 
-hafenClient.on("messageCreate", (message) => {
+// 📥 Reagiere auf Nachrichten
+client.on("messageCreate", (message) => {
   if (message.author.bot) return;
 
   const cmd = message.content.toLowerCase();
+
+  // 👉 Command !hafen
   if (cmd === "!hafen") {
     const roll = Math.random() * 100;
     let antwort = "";
@@ -38,8 +43,26 @@ Gezeichnet Hafenmeister Annesburg`;
 
     message.reply(antwort);
   }
+
+  // 👉 Speichere Erwähnungen
+  if (message.mentions.has(client.user)) {
+    const messages = loadMessages();
+    messages.push({
+      id: message.id,
+      message: message.content,
+      userId: message.author.id,
+      timestamp: message.createdTimestamp,
+      scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000, // +2 Tage
+      sent: false,
+    });
+
+    saveMessages(messages);
+    console.log(`💾 Nachricht gespeichert: ${message.content}`);
+  }
 });
 
-// 🚀 Nur Adminpanel und Hafenmeister starten
+// 🔑 Login
+client.login(process.env.HAFEN_TOKEN);
+
+// 🚀 Adminpanel starten
 startAdmin();
-hafenClient.login(process.env.HAFEN_TOKEN);
