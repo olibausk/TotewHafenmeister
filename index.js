@@ -45,14 +45,15 @@ client.on("messageCreate", (message) => {
   if (message.mentions.has(client.user)) {
     const messages = loadMessages();
 
-    // Falls schon gespeichert -> nicht doppelt
+    // Falls die Nachricht schon gespeichert ist -> NICHT überschreiben
     const exists = messages.find((m) => m.id === message.id);
+
     if (!exists) {
       messages.push({
         id: message.id,
         message: message.content,
         userId: message.author.id,
-        channelId: message.channel.id, // 🔑 wichtig für späteres Senden
+        channelId: message.channel.id, // ✅ Channel speichern
         timestamp: message.createdTimestamp,
         scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000, // Standard: +2 Tage
         sent: false,
@@ -70,37 +71,45 @@ client.login(process.env.HAFEN_TOKEN);
 // 🚀 Adminpanel starten
 startAdmin();
 
-// 🕒 Scheduler: prüft jede Minute
+// ⏰ Scheduler – prüft jede Minute, ob Nachrichten fällig sind
 setInterval(async () => {
   const messages = loadMessages();
   const now = Date.now();
 
-  // Alle fälligen Nachrichten (nicht gesendet, Zeit abgelaufen)
-  const due = messages.filter((m) => !m.sent && m.scheduledTimestamp <= now);
+  // alle fälligen Nachrichten
+  const pending = messages.filter((m) => !m.sent && m.scheduledTimestamp <= now);
 
-  for (const m of due) {
+  for (const next of pending) {
     try {
-      const channel = await client.channels.fetch(m.channelId);
+      const channel = await client.channels.fetch(next.channelId);
       if (channel) {
-        await channel.send(`Sehr geehrte/r <@${m.userId}>,\nIhre Anfrage: "${m.message}"\n\nAntwort vom Hafenmeister: Die Bearbeitung hat nun stattgefunden.`);
-        console.log(`📤 Nachricht gesendet an <@${m.userId}>: ${m.message}`);
-        m.sent = true;
+        await channel.send(
+          `📨 Automatische Antwort an <@${next.userId}>:\n\n${next.message}`
+        );
+        next.sent = true;
+        console.log(`✅ Nachricht automatisch gesendet an <@${next.userId}>`);
+      } else {
+        console.error(`❌ Konnte Channel ${next.channelId} nicht finden.`);
       }
     } catch (err) {
       console.error("❌ Fehler beim Senden:", err);
     }
   }
 
-  // Speichern, damit "sent" markiert ist
-  if (due.length > 0) {
-    saveMessages(messages);
-  }
+  // Speicher aktualisieren
+  saveMessages(messages);
 
-  // Debug: nächste geplante Nachricht
-  const pending = messages.filter((m) => !m.sent && m.scheduledTimestamp > now);
-  if (pending.length > 0) {
-    const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
-    const diff = Math.max(0, Math.round((next.scheduledTimestamp - Date.now()) / 1000));
-    console.log(`[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toUTCString()} (${diff} Sekunden verbleibend)`);
+  // Debug-Info für nächste geplante Nachricht
+  const upcoming = messages.filter((m) => !m.sent && m.scheduledTimestamp > now);
+  if (upcoming.length > 0) {
+    const next = upcoming.sort(
+      (a, b) => a.scheduledTimestamp - b.scheduledTimestamp
+    )[0];
+    const diff = Math.max(0, Math.round((next.scheduledTimestamp - now) / 1000));
+    console.log(
+      `[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(
+        next.scheduledTimestamp
+      ).toUTCString()} (${diff} Sekunden verbleibend)`
+    );
   }
-}, 60 * 1000);
+}, 60 * 1000); // alle 60 Sekunden prüfen
