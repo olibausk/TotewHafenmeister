@@ -6,7 +6,6 @@ import { Client, GatewayIntentBits } from "discord.js";
 import { startAdmin } from "./admin.js";
 import { loadMessages, saveMessages } from "./utils.js";
 
-// ✅ Discord Client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -19,13 +18,12 @@ client.once("clientReady", () => {
   console.log(`⚓ Hafenmeister-Bot eingeloggt als ${client.user.tag}`);
 });
 
-// 📥 Reagiere auf Nachrichten
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
 
   const cmd = message.content.toLowerCase();
 
-  // 👉 Command !hafen
+  // 👉 Direktkommando
   if (cmd === "!hafen") {
     const roll = Math.random() * 100;
     let antwort = "";
@@ -42,25 +40,24 @@ Gezeichnet Hafenmeister Annesburg`;
     }
 
     message.reply(antwort);
+    return;
   }
 
   // 👉 Nur speichern, wenn Bot DIREKT erwähnt wurde
   if (message.mentions.users.has(client.user.id)) {
     const messages = loadMessages();
-
-    // Falls schon gespeichert -> nicht doppelt eintragen
-    const exists = messages.find(m => m.id === message.id);
+    const exists = messages.find((m) => m.id === message.id);
 
     if (!exists) {
       messages.push({
         id: message.id,
         message: message.content,
         userId: message.author.id,
-        channelId: message.channel.id,   // wichtig fürs spätere Antworten
+        channelId: message.channel.id,
         timestamp: message.createdTimestamp,
         scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000, // Standard: +2 Tage
         sent: false,
-        response: null // hier speichern wir später die Bot-Antwort
+        response: null,
       });
 
       saveMessages(messages);
@@ -72,22 +69,62 @@ Gezeichnet Hafenmeister Annesburg`;
 // 🔑 Login
 client.login(process.env.HAFEN_TOKEN);
 
-// 🚀 Adminpanel starten
+// 🚀 Admin starten
 startAdmin();
 
-// DEBUG: Geplante Nachrichten prüfen
-setInterval(() => {
+// 🕒 Scheduler: prüft alle 30s
+setInterval(async () => {
   const messages = loadMessages();
   const now = Date.now();
-  const pending = messages.filter(m => !m.sent && m.scheduledTimestamp > now);
 
-  if (pending.length > 0) {
-    const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
-    if (next) {
-      const diff = Math.max(0, Math.round((next.scheduledTimestamp - Date.now()) / 1000));
-      console.log(
-        `[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toUTCString()} (${diff} Sekunden verbleibend)`
-      );
+  // alle fälligen Nachrichten (<= jetzt)
+  const due = messages.filter((m) => !m.sent && m.scheduledTimestamp <= now);
+
+  for (const m of due) {
+    try {
+      const channel = await client.channels.fetch(m.channelId);
+      if (!channel) {
+        console.error(`❌ Channel ${m.channelId} nicht gefunden`);
+        continue;
+      }
+
+      // Text bauen (Zufallsgenerator wie bei !hafen)
+      const roll = Math.random() * 100;
+      let antwort = "";
+
+      if (roll < 80) {
+        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Bitte lassen Sie diese vom Postmeister abholen.  
+Gezeichnet Hafenmeisterei Annesburg`;
+      } else if (roll < 95) {
+        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.  
+Gezeichnet Hafenmeister Annesburg`;
+      } else {
+        antwort = `Sehr geehrte/r <@${m.userId}>, das Schiff mit Ihrer Bestellung ist untergegangen. Die Reederei ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.  
+Gezeichnet Hafenmeister Annesburg`;
+      }
+
+      await channel.send(antwort);
+
+      // Update speichern
+      m.sent = true;
+      m.response = antwort;
+      saveMessages(messages);
+
+      console.log(`✅ Nachricht automatisch gesendet an <@${m.userId}>`);
+    } catch (err) {
+      console.error(`❌ Fehler beim Senden:`, err);
     }
   }
-}, 60 * 1000); // alle 60 Sekunden
+
+  // Counter im Log für nächste Nachricht
+  const pending = messages.filter((m) => !m.sent);
+  if (pending.length > 0) {
+    const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
+    const diff = Math.max(0, Math.round((next.scheduledTimestamp - now) / 1000));
+    console.log(
+      `[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(
+        next.scheduledTimestamp
+      ).toUTCString()} (${diff} Sekunden verbleibend)`
+    );
+  }
+}, 30 * 1000);
