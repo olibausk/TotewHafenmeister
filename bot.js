@@ -1,17 +1,29 @@
 import { Client, GatewayIntentBits } from 'discord.js';
 import { loadMessages, saveMessages } from './utils.js';
 
-// Client hier behalten, aber KEIN login!
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-});
+const token = process.env.DISCORD_TOKEN;
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
-client.once('clientReady', () => {
+client.once('ready', () => {
   console.log(`🤖 Bot angemeldet als ${client.user.tag}`);
+
+  // ⏳ Debug-Ausgabe für geplante Nachrichten
+  setInterval(() => {
+    const messages = loadMessages();
+    if (messages.length === 0) return;
+
+    const next = messages
+      .filter(m => !m.sent)
+      .sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
+
+    if (next) {
+      const now = Date.now();
+      const diff = next.scheduledTimestamp - now;
+      console.log(
+        `⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toString()} (${Math.round(diff / 1000)} Sekunden verbleibend)`
+      );
+    }
+  }, 60 * 1000); // alle 60 Sekunden prüfen
 });
 
 client.on('messageCreate', (message) => {
@@ -27,7 +39,7 @@ client.on('messageCreate', (message) => {
       message: message.content,
       userId: message.author.id,
       timestamp: message.createdTimestamp,
-      scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000,
+      scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000, // +2 Tage
       sent: false
     });
     saveMessages(messages);
@@ -51,7 +63,6 @@ client.on('messageCreate', (message) => {
   }
 });
 
-// ⛔ KEIN client.login() mehr hier!
 export function startBot() {
-  console.log("🗂️ startBot geladen (Login erfolgt in index.js)");
+  client.login(token);
 }
