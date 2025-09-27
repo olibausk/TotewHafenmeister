@@ -15,6 +15,7 @@ const client = new Client({
   ],
 });
 
+// ✅ Ready Event
 client.once("ready", () => {
   console.log(`⚓ Hafenmeister-Bot eingeloggt als ${client.user.tag}`);
 });
@@ -66,7 +67,7 @@ Gezeichnet Hafenmeister Annesburg`;
       console.log(`💾 Nachricht gespeichert: ${message.content}`);
     }
   }
-}); // ✅ Hier war die fehlende Klammer
+});
 
 // 🔑 Login
 client.login(process.env.HAFEN_TOKEN);
@@ -74,21 +75,16 @@ client.login(process.env.HAFEN_TOKEN);
 // 🚀 Adminpanel starten
 startAdmin();
 
-// DEBUG: Geplante Nachrichten prüfen
+// 🕒 DEBUG: Geplante Nachrichten prüfen
 setInterval(() => {
   const messages = loadMessages();
   const now = Date.now();
   const pending = messages.filter((m) => !m.sent && m.scheduledTimestamp > now);
 
   if (pending.length > 0) {
-    const next = pending.sort(
-      (a, b) => a.scheduledTimestamp - b.scheduledTimestamp
-    )[0];
+    const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
     if (next) {
-      const diff = Math.max(
-        0,
-        Math.round((next.scheduledTimestamp - Date.now()) / 1000)
-      );
+      const diff = Math.max(0, Math.round((next.scheduledTimestamp - Date.now()) / 1000));
       console.log(
         `[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(
           next.scheduledTimestamp
