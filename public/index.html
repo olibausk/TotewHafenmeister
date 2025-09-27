@@ -1,76 +1,107 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Hafenmeister Adminpanel</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; }
-    h1 { color: #333; }
-    .msg { background: white; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
-    .msg.sent { border-left: 5px solid #4caf50; }
-    .msg.pending { border-left: 5px solid #ff9800; }
-    .msg h3 { margin: 0 0 5px 0; }
-    .msg p { margin: 3px 0; }
-    button { margin-right: 5px; padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer; }
-    .reschedule-btn { background: #2196f3; color: white; }
-    .sendnow-btn { background: #4caf50; color: white; }
-    .delete-btn { background: #f44336; color: white; }
-    input { padding: 4px; margin-right: 5px; }
+    body { font-family: sans-serif; margin: 20px; background: #f4f4f4; }
+    h1 { margin-bottom: 10px; }
+    h2 { margin-top: 30px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 6px; }
+    th { background: #ddd; }
+    button { padding: 4px 8px; margin: 2px; }
+    pre { background: #111; color: #0f0; padding: 10px; overflow-x: auto; max-height: 300px; }
+    .log-container { display: flex; gap: 20px; }
+    .log-box { flex: 1; }
   </style>
 </head>
 <body>
-  <h1>⚓ Hafenmeister Adminpanel</h1>
-  <div id="messages"></div>
+  <h1>⚓ Hafenmeister Dashboard</h1>
+
+  <h2>📬 Gespeicherte Nachrichten</h2>
+  <table id="messagesTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>User</th>
+        <th>Nachricht</th>
+        <th>Geplant für</th>
+        <th>Status</th>
+        <th>Aktionen</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>📜 Logs</h2>
+  <div class="log-container" id="logsContainer"></div>
 
   <script>
     async function loadMessages() {
-      const res = await fetch("/api/messages");
+      const res = await fetch("/messages");
       const data = await res.json();
-      const container = document.getElementById("messages");
-      container.innerHTML = "";
-
+      const tbody = document.querySelector("#messagesTable tbody");
+      tbody.innerHTML = "";
       data.forEach(m => {
-        const div = document.createElement("div");
-        div.className = "msg " + (m.sent ? "sent" : "pending");
-
-        div.innerHTML = `
-          <h3>${m.message}</h3>
-          <p><b>User:</b> ${m.userId}</p>
-          <p><b>Geplant:</b> ${new Date(m.scheduledTimestamp).toLocaleString()}</p>
-          <p><b>Status:</b> ${m.sent ? "✅ Gesendet" : "⏳ Offen"}</p>
-          ${m.sent && m.botReply ? `<p><b>Bot-Antwort:</b> ${m.botReply}</p>` : ""}
-          <input type="datetime-local" id="time-${m.id}" value="${new Date(m.scheduledTimestamp).toISOString().slice(0,16)}">
-          <button class="reschedule-btn" onclick="reschedule('${m.id}')">Neu planen</button>
-          <button class="sendnow-btn" onclick="sendNow('${m.id}')">Sofort senden</button>
-          <button class="delete-btn" onclick="deleteMsg('${m.id}')">Löschen</button>
-        `;
-
-        container.appendChild(div);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${m.id}</td>
+          <td><@${m.userId}></td>
+          <td>${m.message}</td>
+          <td>${new Date(m.scheduledTimestamp).toLocaleString()}</td>
+          <td>${m.sent ? "✅ Gesendet" : "⏳ Offen"}</td>
+          <td>
+            <button onclick="sendNow('${m.id}')">Sofort senden</button>
+            <button onclick="deleteMsg('${m.id}')">Löschen</button>
+          </td>`;
+        tbody.appendChild(tr);
       });
-    }
-
-    async function reschedule(id) {
-      const input = document.getElementById("time-" + id);
-      await fetch("/api/reschedule/" + id, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ timestamp: input.value })
-      });
-      loadMessages();
     }
 
     async function sendNow(id) {
-      await fetch("/api/sendnow/" + id, { method: "POST" });
+      await fetch("/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
       loadMessages();
     }
 
     async function deleteMsg(id) {
-      await fetch("/api/delete/" + id, { method: "DELETE" });
+      await fetch("/messages/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
       loadMessages();
     }
 
+    async function loadLogs() {
+      const res = await fetch("/logs");
+      const logs = await res.json();
+      const container = document.getElementById("logsContainer");
+      container.innerHTML = "";
+      for (const [bot, l] of Object.entries(logs)) {
+        const box = document.createElement("div");
+        box.className = "log-box";
+        box.innerHTML = `
+          <h3>${bot}</h3>
+          <strong>stdout:</strong><pre>${l.out}</pre>
+          <strong>stderr:</strong><pre>${l.err}</pre>
+        `;
+        container.appendChild(box);
+      }
+    }
+
+    // Auto-Refresh alle 10 Sekunden
+    setInterval(() => {
+      loadMessages();
+      loadLogs();
+    }, 10000);
+
     loadMessages();
-    setInterval(loadMessages, 5000);
+    loadLogs();
   </script>
 </body>
 </html>
