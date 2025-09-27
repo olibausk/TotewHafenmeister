@@ -1,11 +1,10 @@
 // index.js
 import dotenv from "dotenv";
 dotenv.config();
-import { startBot } from './bot.js';
-import { startAdmin } from './admin.js';
+import { startAdmin } from "./admin.js";
 import { Client, GatewayIntentBits } from "discord.js";
 
-// ✅ Hafenmeister-Bot extra Client
+// ✅ Hafenmeister-Bot Client
 const hafenClient = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -14,7 +13,7 @@ const hafenClient = new Client({
   ],
 });
 
-hafenClient.once("ready", () => {
+hafenClient.once("clientReady", () => {
   console.log(`⚓ Hafenmeister-Bot eingeloggt als ${hafenClient.user.tag}`);
 });
 
@@ -41,8 +40,6 @@ Gezeichnet Hafenmeister Annesburg`;
   }
 });
 
-// 🚀 Starte die beiden bestehenden Module
+// 🚀 Nur Adminpanel und Hafenmeister starten
 startAdmin();
-
-// 🔑 Login Hafenmeister-Bot
-hafenClient.login(process.env.DISCORD_TOKEN);
+hafenClient.login(process.env.HAFEN_TOKEN);
