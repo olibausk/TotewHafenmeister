@@ -3,43 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <title>Hafenmeister Adminpanel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .message {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .sent { border-left: 6px solid #4caf50; }
+    .pending { border-left: 6px solid #ff9800; }
+    button {
+      margin-top: 8px;
+      margin-right: 8px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .reschedule-btn { background: #2196f3; color: white; }
+    .sendnow-btn { background: #4caf50; color: white; }
+  </style>
 </head>
 <body>
   <h1>⚓ Hafenmeister Adminpanel</h1>
-  <ul id="messages"></ul>
+  <div id="messages"></div>
 
   <script>
     async function loadMessages() {
-      const res = await fetch("/messages");
+      const res = await fetch("/api/messages");
       const messages = await res.json();
-      const ul = document.getElementById("messages");
-      ul.innerHTML = messages.map(m => `
-        <li>
-          <p><b>User:</b> ${m.message}</p>
-          <p><b>Status:</b> ${m.sent ? "✅ Gesendet" : "⏳ Geplant für " + new Date(m.scheduledTimestamp).toLocaleString()}</p>
-          ${m.botMessage ? `<p><b>Bot-Antwort:</b> ${m.botMessage}</p>` : ""}
-          <input type="text" value="${new Date(m.scheduledTimestamp).toISOString().slice(0,16)}"
-                 onchange="updateTime('${m.id}', this.value)">
-          ${!m.sent ? `<button onclick="sendNow('${m.id}')">Jetzt senden</button>` : ""}
-        </li>
-      `).join("");
+      const container = document.getElementById("messages");
+      container.innerHTML = "";
+
+      messages.forEach(m => {
+        const div = document.createElement("div");
+        div.className = "message " + (m.sent ? "sent" : "pending");
+        div.innerHTML = `
+          <b>User:</b> ${m.userId}<br>
+          <b>Original:</b> ${m.message}<br>
+          <b>Geplant für:</b> ${new Date(m.scheduledTimestamp).toLocaleString()}<br>
+          <b>Status:</b> ${m.sent ? "✅ Gesendet" : "⏳ Offen"}<br>
+          ${m.sent ? `
+            <b>Gesendet am:</b> ${new Date(m.sentAt).toLocaleString()}<br>
+            <b>Bot-Antwort:</b> ${m.botResponse}
+          ` : ""}
+          <div>
+            <input type="text" id="time-${m.id}" placeholder="YYYY-MM-DD HH:MM:SS">
+            <button class="reschedule-btn" onclick="reschedule('${m.id}')">Neu planen</button>
+            <button class="sendnow-btn" onclick="sendNow('${m.id}')">Sofort senden</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
     }
 
-    async function updateTime(id, value) {
-      await fetch("/update/" + id, {
+    async function reschedule(id) {
+      const input = document.getElementById("time-" + id);
+      const timestamp = input.value;
+      await fetch("/api/reschedule/" + id, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scheduledTimestamp: new Date(value).getTime() })
+        body: JSON.stringify({ timestamp })
       });
       loadMessages();
     }
 
     async function sendNow(id) {
-      await fetch("/sendNow/" + id, { method: "POST" });
+      await fetch("/api/sendnow/" + id, { method: "POST" });
       loadMessages();
     }
 
     loadMessages();
+    setInterval(loadMessages, 5000);
   </script>
 </body>
 </html>
