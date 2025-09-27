@@ -2,7 +2,13 @@ import { Client, GatewayIntentBits } from 'discord.js';
 import { loadMessages, saveMessages } from './utils.js';
 
 const token = process.env.DISCORD_TOKEN;
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
 
 client.once('ready', () => {
   console.log(`🤖 Bot angemeldet als ${client.user.tag}`);
@@ -16,22 +22,24 @@ client.once('ready', () => {
       .filter(m => !m.sent)
       .sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
 
-  if (next) {
-  const now = Date.now();
-  const diff = next.scheduledTimestamp - now;
+    if (next) {
+      const now = Date.now();
+      const diff = next.scheduledTimestamp - now;
 
-  if (diff > 0) {
-    console.log(
-      `⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toLocaleString()} (${Math.round(diff / 1000)} Sekunden verbleibend)`
-    );
-  } else {
-    console.log(
-      `⚠️ Antwort war fällig um ${new Date(next.scheduledTimestamp).toLocaleString()} (vor ${Math.abs(Math.round(diff / 1000))} Sekunden)`
-    );
-  }
-}
- 
+      if (diff > 0) {
+        console.log(
+          `⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toLocaleString()} (${Math.round(diff / 1000)} Sekunden verbleibend)`
+        );
+      } else {
+        console.log(
+          `⚠️ Antwort war fällig um ${new Date(next.scheduledTimestamp).toLocaleString()} (vor ${Math.abs(Math.round(diff / 1000))} Sekunden)`
+        );
+      }
+    }
+  }, 60 * 1000); // alle 60 Sekunden prüfen
+});
 
+// 📩 Nachrichten-Handler
 client.on('messageCreate', (message) => {
   if (message.author.bot) return;
 
