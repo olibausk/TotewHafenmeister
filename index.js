@@ -46,4 +46,4 @@ startBot();
 startAdmin();
 
 // 🔑 Login Hafenmeister-Bot
-hafenClient.login(process.env.HAFEN_TOKEN);
+hafenClient.login(process.env.DISCORD_TOKEN);
