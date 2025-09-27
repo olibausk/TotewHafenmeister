@@ -10,7 +10,7 @@ const PORT = 10001;
 // 🔑 Zugangsdaten
 app.use(
   basicAuth({
-    users: { admin: "supersecret" }, // Ändere Benutzer & Passwort
+    users: { admin: "038ddd559495ff1d310fd7907d0687b6" }, // Ändere Benutzer & Passwort
     challenge: true,
   })
 );
