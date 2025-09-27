@@ -15,12 +15,11 @@ const client = new Client({
   ],
 });
 
-// ⚓ Bot ready
 client.once("clientReady", () => {
   console.log(`⚓ Hafenmeister-Bot eingeloggt als ${client.user.tag}`);
 });
 
-// 📥 Reagiere auf Nachrichten
+// 📥 Nachrichten-Handler
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
 
@@ -45,12 +44,10 @@ Gezeichnet Hafenmeister Annesburg`;
     message.reply(antwort);
   }
 
-  // 👉 Speichere Erwähnungen
+  // 👉 Speichere Erwähnungen (nur beim ersten Mal)
   if (message.mentions.has(client.user)) {
     const messages = loadMessages();
-
-    // Falls die Nachricht schon gespeichert ist -> NICHT überschreiben
-    const exists = messages.find((m) => m.id === message.id);
+    const exists = messages.find(m => m.id === message.id);
 
     if (!exists) {
       messages.push({
@@ -58,13 +55,14 @@ Gezeichnet Hafenmeister Annesburg`;
         message: message.content,
         userId: message.author.id,
         timestamp: message.createdTimestamp,
-        // Standard: +2 Tage – aber nur beim ERSTEN Speichern
-        scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000,
+        scheduledTimestamp: Date.now() + 2 * 24 * 60 * 60 * 1000, // Standard: +2 Tage
         sent: false,
       });
 
       saveMessages(messages);
       console.log(`💾 Nachricht gespeichert: ${message.content}`);
+    } else {
+      console.log(`⚠️ Nachricht ${message.id} schon vorhanden, wird nicht überschrieben`);
     }
   }
 });
@@ -75,26 +73,15 @@ client.login(process.env.HAFEN_TOKEN);
 // 🚀 Adminpanel starten
 startAdmin();
 
-// 🕒 DEBUG: Geplante Nachrichten prüfen
+// 🕒 Scheduler-Log für Debug
 setInterval(() => {
   const messages = loadMessages();
   const now = Date.now();
-  const pending = messages.filter((m) => !m.sent && m.scheduledTimestamp > now);
+  const pending = messages.filter(m => !m.sent && m.scheduledTimestamp > now);
 
   if (pending.length > 0) {
-    const next = pending.sort(
-      (a, b) => a.scheduledTimestamp - b.scheduledTimestamp
-    )[0];
-    if (next) {
-      const diff = Math.max(
-        0,
-        Math.round((next.scheduledTimestamp - Date.now()) / 1000)
-      );
-      console.log(
-        `[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(
-          next.scheduledTimestamp
-        ).toUTCString()} (${diff} Sekunden verbleibend)`
-      );
-    }
+    const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
+    const diff = Math.max(0, Math.round((next.scheduledTimestamp - now) / 1000));
+    console.log(`[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toUTCString()} (${diff} Sekunden verbleibend)`);
   }
 }, 60 * 1000); // alle 60 Sekunden prüfen
