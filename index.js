@@ -75,9 +75,9 @@ setInterval(() => {
     const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
     const diff = next.scheduledTimestamp - now;
     console.log(
-      `⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toString()} (${Math.round(diff / 1000)} Sekunden verbleibend)`
-    );
-  } else {
-    console.log("ℹ️ Keine geplanten Antworten vorhanden.");
+ if (next) {
+  const diff = Math.max(0, Math.round((next.scheduledTimestamp - Date.now()) / 1000));
+  console.log(`[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(next.scheduledTimestamp).toUTCString()} (${diff} Sekunden verbleibend)`);
+}
   }
 }, 60 * 1000); // alle 60 Sekunden
