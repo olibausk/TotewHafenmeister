@@ -3,104 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <title>Hafenmeister Adminpanel</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f8f8f8;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #2c3e50;
-      color: #fff;
-      padding: 1rem;
-      text-align: center;
-    }
-    main {
-      padding: 1rem;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      margin-top: 1rem;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 0.5rem;
-      text-align: left;
-    }
-    th {
-      background: #eee;
-    }
-    tr.sent {
-      background: #d4edda; /* grün für gesendet */
-    }
-    button {
-      padding: 0.3rem 0.6rem;
-      margin: 0.2rem;
-      cursor: pointer;
-    }
-    .btn-send {
-      background: #007bff;
-      color: #fff;
-      border: none;
-    }
-  </style>
 </head>
 <body>
-  <header>
-    <h1>⚓ Hafenmeister Adminpanel</h1>
-  </header>
-  <main>
-    <h2>Geplante Nachrichten</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>User</th>
-          <th>Nachricht</th>
-          <th>Geplant für</th>
-          <th>Status</th>
-          <th>Aktionen</th>
-        </tr>
-      </thead>
-      <tbody id="messages"></tbody>
-    </table>
-  </main>
+  <h1>⚓ Hafenmeister Adminpanel</h1>
+  <ul id="messages"></ul>
 
   <script>
     async function loadMessages() {
-      const res = await fetch('/messages');
-      const data = await res.json();
-      const tbody = document.getElementById('messages');
-      tbody.innerHTML = '';
-
-      data.forEach(msg => {
-        const tr = document.createElement('tr');
-        if (msg.sent) tr.classList.add('sent');
-
-        tr.innerHTML = `
-          <td>${msg.id}</td>
-          <td>${msg.userId}</td>
-          <td>${msg.message}</td>
-          <td>${new Date(msg.scheduledTimestamp).toLocaleString()}</td>
-          <td>${msg.sent ? "✅ Gesendet<br>" + (msg.botReply || "—") : "⏳ Offen"}</td>
-          <td>
-            ${!msg.sent ? `<button class="btn-send" onclick="sendNow('${msg.id}')">Sofort senden</button>` : ""}
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
+      const res = await fetch("/messages");
+      const messages = await res.json();
+      const ul = document.getElementById("messages");
+      ul.innerHTML = messages.map(m => `
+        <li>
+          <p><b>User:</b> ${m.message}</p>
+          <p><b>Status:</b> ${m.sent ? "✅ Gesendet" : "⏳ Geplant für " + new Date(m.scheduledTimestamp).toLocaleString()}</p>
+          ${m.botMessage ? `<p><b>Bot-Antwort:</b> ${m.botMessage}</p>` : ""}
+          <input type="text" value="${new Date(m.scheduledTimestamp).toISOString().slice(0,16)}"
+                 onchange="updateTime('${m.id}', this.value)">
+          ${!m.sent ? `<button onclick="sendNow('${m.id}')">Jetzt senden</button>` : ""}
+        </li>
+      `).join("");
     }
 
-    async function sendNow(id) {
-      await fetch(`/send/${id}`, { method: 'POST' });
+    async function updateTime(id, value) {
+      await fetch("/update/" + id, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduledTimestamp: new Date(value).getTime() })
+      });
       loadMessages();
     }
 
-    // Alle 5 Sekunden aktualisieren
-    setInterval(loadMessages, 5000);
+    async function sendNow(id) {
+      await fetch("/sendNow/" + id, { method: "POST" });
+      loadMessages();
+    }
+
     loadMessages();
   </script>
 </body>
