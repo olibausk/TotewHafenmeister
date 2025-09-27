@@ -42,7 +42,6 @@ Gezeichnet Hafenmeister Annesburg`;
 });
 
 // 🚀 Starte die beiden bestehenden Module
-startBot();
 startAdmin();
 
 // 🔑 Login Hafenmeister-Bot
