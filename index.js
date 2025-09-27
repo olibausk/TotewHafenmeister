@@ -15,8 +15,8 @@ const client = new Client({
   ],
 });
 
-// ✅ Ready Event
-client.once("ready", () => {
+// ⚓ Bot ready
+client.once("clientReady", () => {
   console.log(`⚓ Hafenmeister-Bot eingeloggt als ${client.user.tag}`);
 });
 
@@ -82,9 +82,14 @@ setInterval(() => {
   const pending = messages.filter((m) => !m.sent && m.scheduledTimestamp > now);
 
   if (pending.length > 0) {
-    const next = pending.sort((a, b) => a.scheduledTimestamp - b.scheduledTimestamp)[0];
+    const next = pending.sort(
+      (a, b) => a.scheduledTimestamp - b.scheduledTimestamp
+    )[0];
     if (next) {
-      const diff = Math.max(0, Math.round((next.scheduledTimestamp - Date.now()) / 1000));
+      const diff = Math.max(
+        0,
+        Math.round((next.scheduledTimestamp - Date.now()) / 1000)
+      );
       console.log(
         `[Scheduler] ⏳ Nächste geplante Antwort: ${new Date(
           next.scheduledTimestamp
@@ -92,4 +97,4 @@ setInterval(() => {
       );
     }
   }
-}, 60 * 1000); // alle 60 Sekunden
+}, 60 * 1000); // alle 60 Sekunden prüfen
