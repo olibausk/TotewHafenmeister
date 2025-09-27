@@ -13,25 +13,23 @@ export function startAdmin() {
   app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: true }));
 
-  // 👉 Public-Ordner für HTML/CSS/JS
   app.use(express.static(path.join(__dirname, "public")));
 
-  // API: Alle Nachrichten holen
+  // Alle Nachrichten abrufen
   app.get("/api/messages", (req, res) => {
-    const messages = loadMessages();
-    res.json(messages);
+    res.json(loadMessages());
   });
 
-  // API: Neu planen
+  // Nachricht neu planen
   app.post("/api/reschedule/:id", (req, res) => {
     const messages = loadMessages();
-    const msg = messages.find((m) => m.id === req.params.id);
+    const msg = messages.find(m => m.id === req.params.id);
 
     if (msg) {
       const newTime = new Date(req.body.timestamp).getTime();
       if (!isNaN(newTime)) {
         msg.scheduledTimestamp = newTime;
-        msg.sent = false; // zurücksetzen
+        msg.sent = false;
         saveMessages(messages);
         console.log(`♻️ Nachricht ${msg.id} neu geplant für ${req.body.timestamp}`);
       }
@@ -40,10 +38,10 @@ export function startAdmin() {
     res.json({ success: true });
   });
 
-  // API: Sofort senden
+  // Sofort senden
   app.post("/api/sendnow/:id", (req, res) => {
     const messages = loadMessages();
-    const msg = messages.find((m) => m.id === req.params.id);
+    const msg = messages.find(m => m.id === req.params.id);
 
     if (msg) {
       msg.scheduledTimestamp = Date.now();
@@ -52,6 +50,15 @@ export function startAdmin() {
       console.log(`🚀 Nachricht ${msg.id} für sofortigen Versand markiert`);
     }
 
+    res.json({ success: true });
+  });
+
+  // ❌ Nachricht löschen
+  app.delete("/api/delete/:id", (req, res) => {
+    let messages = loadMessages();
+    messages = messages.filter(m => m.id !== req.params.id);
+    saveMessages(messages);
+    console.log(`🗑️ Nachricht ${req.params.id} gelöscht`);
     res.json({ success: true });
   });
 
