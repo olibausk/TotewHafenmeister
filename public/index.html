@@ -2,106 +2,229 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Hafenmeister Adminpanel</title>
+  <title>Admin Dashboard</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; background: #f4f4f4; }
-    h1 { margin-bottom: 10px; }
-    h2 { margin-top: 30px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th, td { border: 1px solid #ccc; padding: 6px; }
-    th { background: #ddd; }
-    button { padding: 4px 8px; margin: 2px; }
-    pre { background: #111; color: #0f0; padding: 10px; overflow-x: auto; max-height: 300px; }
-    .log-container { display: flex; gap: 20px; }
-    .log-box { flex: 1; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #222;
+      color: #ddd;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      text-align: center;
+      margin: 10px;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      background: #111;
+      padding: 8px;
+    }
+    nav button {
+      margin: 0 5px;
+      padding: 8px 16px;
+      background: #444;
+      border: none;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    nav button.active {
+      background: #666;
+    }
+    .view {
+      display: none;
+      padding: 10px;
+    }
+    .view.active {
+      display: block;
+    }
+    /* Nachrichten */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    table th, table td {
+      border: 1px solid #444;
+      padding: 6px;
+      text-align: left;
+    }
+    table th {
+      background: #333;
+    }
+    /* Logs */
+    .container {
+      display: flex;
+      gap: 10px;
+    }
+    .column {
+      flex: 1;
+      background: #333;
+      border-radius: 5px;
+      padding: 10px;
+      overflow-y: auto;
+      height: 85vh;
+    }
+    .column h2 {
+      margin-top: 0;
+      font-size: 18px;
+      text-align: center;
+      color: #fff;
+    }
+    .log-entry {
+      white-space: pre-wrap;
+      border-bottom: 1px solid #444;
+      padding: 4px 0;
+    }
+    .log-entry.err {
+      color: #ff6b6b;
+    }
+    .log-entry.out {
+      color: #9acd32;
+    }
   </style>
 </head>
 <body>
-  <h1>⚓ Hafenmeister Dashboard</h1>
+  <h1>📊 Admin Dashboard</h1>
+  <nav>
+    <button id="tab-msg" class="active">📨 Nachrichten</button>
+    <button id="tab-logs">📜 Logs</button>
+  </nav>
 
-  <h2>📬 Gespeicherte Nachrichten</h2>
-  <table id="messagesTable">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>User</th>
-        <th>Nachricht</th>
-        <th>Geplant für</th>
-        <th>Status</th>
-        <th>Aktionen</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <!-- Nachrichten -->
+  <div id="view-msg" class="view active">
+    <h2>Gespeicherte Nachrichten</h2>
+    <table id="msg-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Nachricht</th>
+          <th>Geplant</th>
+          <th>Status</th>
+          <th>Aktionen</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-  <h2>📜 Logs</h2>
-  <div class="log-container" id="logsContainer"></div>
+  <!-- Logs -->
+  <div id="view-logs" class="view">
+    <div class="container">
+      <div class="column" id="hafenmeister">
+        <h2>⚓ Hafenmeister</h2>
+        <div class="logs"></div>
+      </div>
+      <div class="column" id="gambit">
+        <h2>🎲 Gambit</h2>
+        <div class="logs"></div>
+      </div>
+      <div class="column" id="totew">
+        <h2>🐂 Totew</h2>
+        <div class="logs"></div>
+      </div>
+    </div>
+  </div>
 
   <script>
+    // Tab-Steuerung
+    const btnMsg = document.getElementById("tab-msg");
+    const btnLogs = document.getElementById("tab-logs");
+    const viewMsg = document.getElementById("view-msg");
+    const viewLogs = document.getElementById("view-logs");
+
+    function switchTab(tab) {
+      if (tab === "msg") {
+        btnMsg.classList.add("active");
+        btnLogs.classList.remove("active");
+        viewMsg.classList.add("active");
+        viewLogs.classList.remove("active");
+      } else {
+        btnLogs.classList.add("active");
+        btnMsg.classList.remove("active");
+        viewLogs.classList.add("active");
+        viewMsg.classList.remove("active");
+      }
+    }
+
+    btnMsg.onclick = () => switchTab("msg");
+    btnLogs.onclick = () => switchTab("logs");
+
+    // Nachrichten laden
     async function loadMessages() {
       const res = await fetch("/messages");
-      const data = await res.json();
-      const tbody = document.querySelector("#messagesTable tbody");
+      const messages = await res.json();
+
+      const tbody = document.querySelector("#msg-table tbody");
       tbody.innerHTML = "";
-      data.forEach(m => {
+
+      messages.forEach(m => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${m.id}</td>
           <td><@${m.userId}></td>
           <td>${m.message}</td>
           <td>${new Date(m.scheduledTimestamp).toLocaleString()}</td>
           <td>${m.sent ? "✅ Gesendet" : "⏳ Offen"}</td>
           <td>
-            <button onclick="sendNow('${m.id}')">Sofort senden</button>
-            <button onclick="deleteMsg('${m.id}')">Löschen</button>
-          </td>`;
+            <button onclick="sendNow('${m.id}')">📤 Sofort</button>
+            <button onclick="deleteMsg('${m.id}')">🗑️ Löschen</button>
+          </td>
+        `;
         tbody.appendChild(tr);
       });
     }
 
     async function sendNow(id) {
-      await fetch("/messages/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id })
-      });
+      await fetch("/messages/sendnow/" + id, { method: "POST" });
       loadMessages();
     }
 
     async function deleteMsg(id) {
-      await fetch("/messages/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id })
-      });
+      await fetch("/messages/" + id, { method: "DELETE" });
       loadMessages();
     }
 
+    // Logs laden
     async function loadLogs() {
-      const res = await fetch("/logs");
-      const logs = await res.json();
-      const container = document.getElementById("logsContainer");
-      container.innerHTML = "";
-      for (const [bot, l] of Object.entries(logs)) {
-        const box = document.createElement("div");
-        box.className = "log-box";
-        box.innerHTML = `
-          <h3>${bot}</h3>
-          <strong>stdout:</strong><pre>${l.out}</pre>
-          <strong>stderr:</strong><pre>${l.err}</pre>
-        `;
-        container.appendChild(box);
+      try {
+        const res = await fetch("/logs");
+        const data = await res.json();
+
+        for (const bot of ["hafenmeister", "gambit", "totew"]) {
+          const col = document.querySelector(`#${bot} .logs`);
+          col.innerHTML = "";
+
+          if (!data[bot]) {
+            col.innerHTML = "<div class='log-entry err'>❌ Keine Logs gefunden</div>";
+            continue;
+          }
+
+          const entries = [
+            ...(data[bot].out || []).map(line => ({ line, type: "out" })),
+            ...(data[bot].err || []).map(line => ({ line, type: "err" }))
+          ];
+
+          // Neueste oben
+          entries.reverse();
+
+          for (const e of entries) {
+            const div = document.createElement("div");
+            div.className = `log-entry ${e.type}`;
+            div.textContent = e.line;
+            col.appendChild(div);
+          }
+        }
+      } catch (err) {
+        console.error("Fehler beim Laden der Logs", err);
       }
     }
 
-    // Auto-Refresh alle 10 Sekunden
-    setInterval(() => {
-      loadMessages();
-      loadLogs();
-    }, 10000);
-
+    // Refresh-Intervalle
     loadMessages();
+    setInterval(loadMessages, 5000);
     loadLogs();
+    setInterval(loadLogs, 5000);
   </script>
 </body>
 </html>
