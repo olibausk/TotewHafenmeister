@@ -1,73 +1,113 @@
+// admin.js
 import express from "express";
 import basicAuth from "express-basic-auth";
-import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
-import { loadMessages, saveMessages } from "./utils.js";
+import path from "path";
+import dotenv from "dotenv";
+dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.resolve();
+const app = express();
 
-export function startAdmin() {
-  const app = express();
+// Auth mit ENV Variablen
+app.use(
+  basicAuth({
+    users: { [process.env.ADMIN_USER]: process.env.ADMIN_PASS },
+    challenge: true,
+  })
+);
 
-  app.use(express.json());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-  // 🔑 Login mit env
-  app.use(
-    basicAuth({
-      users: { [process.env.ADMIN_USER]: process.env.ADMIN_PASS },
-      challenge: true,
-    })
-  );
+// Hilfsfunktion: Logs einlesen mit Timestamp
+function readLog(file, lines = 50) {
+  try {
+    if (!fs.existsSync(file)) return [];
+    const content = fs.readFileSync(file, "utf8").trim().split("\n");
+    return content
+      .slice(-lines)
+      .map((line) => {
+        return `[${new Date().toISOString()}] ${line}`;
+      });
+  } catch (err) {
+    return [`Error reading ${file}: ${err.message}`];
+  }
+}
 
-  // Nachrichten abrufen
-  app.get("/messages", (req, res) => {
-    res.json(loadMessages());
-  });
+// Logs für mehrere Bots abrufen
+app.get("/logs", (req, res) => {
+  const bots = {
+    hafenmeister: {
+      out: "/root/.pm2/logs/hafenmeister-out.log",
+      err: "/root/.pm2/logs/hafenmeister-error.log",
+    },
+    gambit: {
+      out: "/root/.pm2/logs/gambit-out.log",
+      err: "/root/.pm2/logs/gambit-error.log",
+    },
+    totew: {
+      out: "/root/.pm2/logs/totew-out.log",
+      err: "/root/.pm2/logs/totew-error.log",
+    },
+  };
 
-  // Nachricht sofort senden
-  app.post("/messages/send", (req, res) => {
-    const { id } = req.body;
-    const messages = loadMessages();
-    const msg = messages.find(m => m.id === id);
-    if (!msg) return res.status(404).json({ error: "Nicht gefunden" });
+  const result = {};
+  for (const [name, paths] of Object.entries(bots)) {
+    result[name] = {
+      out: readLog(paths.out),
+      err: readLog(paths.err),
+    };
+  }
+
+  res.json(result);
+});
+
+// Nachrichten-Endpunkte
+let messages = [];
+export function loadMessages() {
+  try {
+    const file = path.join(__dirname, "messages.json");
+    if (!fs.existsSync(file)) return [];
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return [];
+  }
+}
+
+export function saveMessages(data) {
+  const file = path.join(__dirname, "messages.json");
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
+
+app.get("/messages", (req, res) => {
+  res.json(loadMessages());
+});
+
+app.post("/messages/send", (req, res) => {
+  const { id } = req.body;
+  let msgs = loadMessages();
+  const msg = msgs.find((m) => m.id === id);
+  if (msg) {
     msg.scheduledTimestamp = Date.now();
-    saveMessages(messages);
-    res.json({ ok: true });
-  });
+    saveMessages(msgs);
+    return res.json({ ok: true });
+  }
+  res.status(404).json({ ok: false, error: "Message not found" });
+});
 
-  // Nachricht löschen
-  app.post("/messages/delete", (req, res) => {
-    const { id } = req.body;
-    let messages = loadMessages();
-    messages = messages.filter(m => m.id !== id);
-    saveMessages(messages);
-    res.json({ ok: true });
-  });
+app.post("/messages/delete", (req, res) => {
+  const { id } = req.body;
+  let msgs = loadMessages();
+  msgs = msgs.filter((m) => m.id !== id);
+  saveMessages(msgs);
+  res.json({ ok: true });
+});
 
-  // Logs abrufen (letzte 50 Zeilen pro Bot)
-  app.get("/logs", (req, res) => {
-    const bots = ["hafenmeister", "gambit"];
-    const logs = {};
-    bots.forEach(bot => {
-      try {
-        const out = fs.readFileSync(`/root/.pm2/logs/${bot}-out.log`, "utf8")
-          .split("\n").slice(-50).join("\n");
-        const err = fs.readFileSync(`/root/.pm2/logs/${bot}-error.log`, "utf8")
-          .split("\n").slice(-50).join("\n");
-        logs[bot] = { out, err };
-      } catch {
-        logs[bot] = { out: "Keine Logs gefunden", err: "" };
-      }
-    });
-    res.json(logs);
-  });
-
-  // Dashboard HTML
-  app.use(express.static(path.join(__dirname, "public")));
-
-  app.listen(process.env.ADMIN_PORT || 10001, () => {
-    console.log(`✅ Adminpanel läuft auf Port ${process.env.ADMIN_PORT || 10001}`);
+// Start Adminserver
+export function startAdmin() {
+  const port = process.env.ADMIN_PORT || 10001;
+  app.listen(port, () => {
+    console.log(`✅ Adminpanel läuft auf Port ${port}`);
   });
 }
