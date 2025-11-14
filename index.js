@@ -93,14 +93,14 @@ setInterval(async () => {
       let antwort = "";
 
       if (roll < 80) {
-        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Bitte lassen Sie diese vom Postmeister abholen.  
-Gezeichnet Hafenmeisterei Annesburg`;
+        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen an. Bitte lassen Sie diese vom Postmeister abholen.  
+Gezeichnet Hafenmeisterei`;
       } else if (roll < 95) {
-        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen von Annesburg an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.  
-Gezeichnet Hafenmeister Annesburg`;
+        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.  
+Gezeichnet Hafenmeister`;
       } else {
         antwort = `Sehr geehrte/r <@${m.userId}>, das Schiff mit Ihrer Bestellung ist untergegangen. Die Reederei ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.  
-Gezeichnet Hafenmeister Annesburg`;
+Gezeichnet Hafenmeister`;
       }
 
       await channel.send(antwort);
