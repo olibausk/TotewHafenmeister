@@ -58,7 +58,7 @@ export function startAdmin() {
 
   // Logs holen
   app.get("/logs", (_req, res) => {
-    const bots = ["hafenmeister", "gambit", "totew"];
+    const bots = ["hafenmeister", "gambit"];
     const result = {};
 
     for (const bot of bots) {
