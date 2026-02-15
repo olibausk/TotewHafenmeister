@@ -6,11 +6,11 @@ import { client } from "./index.js";
 function randomAntwort(userId) {
   const roll = Math.random() * 100;
   if (roll < 80) {
-    return `Sehr geehrte/r <@${userId}>, Ihre Waren kommen in der nächsten Woche im Hafen an. Bitte lassen Sie diese vom Postmeister abholen.\nGezeichnet Hafenmeisterei`;
+    return `Sehr geehrte/r <@${userId}>, Ihre Waren kommen in der nächsten Woche am Bahnhof an. Bitte lassen Sie diese vom Postmeister abholen.\nGezeichnet Postamt`;
   } else if (roll < 95) {
-    return `Sehr geehrte/r <@${userId}>, Ihre Waren kommen in der nächsten Woche im Hafen an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen.\nGezeichnet Hafenmeister`;
+    return `Sehr geehrte/r <@${userId}>, Ihre Waren kommen in der nächsten Woche am Bahnhof an. Leider war ein Teil der Ladung beschädigt und musste entsorgt werden.\nGezeichnet Postamt`;
   } else {
-    return `Sehr geehrte/r <@${userId}>, das Schiff mit Ihrer Bestellung ist untergegangen. Die Reederei ist leider nicht versichert.\nGezeichnet Hafenmeister`;
+    return `Sehr geehrte/r <@${userId}>, auf einem Überfall wurde die Ladung gestohlen. Die Lieferung ist leider nicht versichert.\nGezeichnet Postamt`;
   }
 }
 
