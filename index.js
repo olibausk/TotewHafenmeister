@@ -29,14 +29,14 @@ client.on("messageCreate", (message) => {
     let antwort = "";
 
     if (roll < 80) {
-      antwort = `Sehr geehrte/r <@${message.author.id}>, Ihre Waren kommen in der nächsten Woche im Hafen an. Bitte lassen Sie diese vom Postmeister abholen.  
-Gezeichnet Hafenmeisterei`;
+      antwort = `Sehr geehrte/r <@${message.author.id}>, Ihre Waren kommen in der nächsten Woche am Bahnhof an. Bitte lassen Sie diese vom Postmeister abholen.  
+Gezeichnet Postamt`;
     } else if (roll < 95) {
-      antwort = `Sehr geehrte/r <@${message.author.id}>, Ihre Waren kommen in der nächsten Woche im Hafen an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.  
-Gezeichnet Hafenmeister`;
+      antwort = `Sehr geehrte/r <@${message.author.id}>, Ihre Waren kommen in der nächsten Woche am Bahnhof an. Leider war Teil der Ladung beschädigt und musste entsorgt werden. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.  
+Gezeichnet Postamt`;
     } else {
-      antwort = `Sehr geehrte/r <@${message.author.id}>, das Schiff mit Ihrer Bestellung ist untergegangen. Die Reederei ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.  
-Gezeichnet Hafenmeister`;
+      antwort = `Sehr geehrte/r <@${message.author.id}>, bei einem Überfall wurde ihre Ware geraubt. Die Lieferung ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.  
+Gezeichnet Postamt`;
     }
 
     message.reply(antwort);
@@ -93,14 +93,14 @@ setInterval(async () => {
       let antwort = "";
 
       if (roll < 80) {
-        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen an. Bitte lassen Sie diese vom Postmeister abholen.  
-Gezeichnet Hafenmeisterei`;
+        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche am Bahnhof an. Bitte lassen Sie diese vom Postmeister abholen.  
+Gezeichnet Postam`;
       } else if (roll < 95) {
-        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche im Hafen an. Leider haben Ratten auf dem Schiff die Hälfte der Ladung angeknabbert und die Seeleute mussten diese Kiste über Bord werfen. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.  
-Gezeichnet Hafenmeister`;
+        antwort = `Sehr geehrte/r <@${m.userId}>, Ihre Waren kommen in der nächsten Woche am Bahnhof an. Leider war Teil der Ladung beschädigt und musste entsorgt werden. Eine Erstattung wird es nicht geben, seien Sie froh, dass die Mehrarbeit nicht in Rechnung gestellt wurde.  
+Gezeichnet Postamt`;
       } else {
-        antwort = `Sehr geehrte/r <@${m.userId}>, das Schiff mit Ihrer Bestellung ist untergegangen. Die Reederei ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.  
-Gezeichnet Hafenmeister`;
+        antwort = `Sehr geehrte/r <@${m.userId}>, bei einem Überfall wurde ihre Ware geraubt. Die Lieferung ist leider nicht versichert, daher gibt es weder Waren noch Geld zurück. Hier müssen Sie eine neue Bestellung auslösen.  
+Gezeichnet Postamt`;
       }
 
       await channel.send(antwort);
